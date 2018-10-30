@@ -1,0 +1,26 @@
+<html>
+<body>
+	<video id="video1">
+		<source src="D:/tmp/yushu/yl-english/6b/wordmp3/unit1.mp3" type="audio/mpeg">
+	</video>
+	<input type="text" id="s" />
+	<input type="text" id="e" />
+	<button onclick="play()">Click</button>
+</body>
+<script>
+	function play() {
+		var s = document.getElementById("s").value/1000;
+		var e = document.getElementById("e").value/1000;
+		var v = document.getElementById("video1");
+		v.currentTime = s;
+		v.ontimeupdate = function(event) {
+			console.log(v.currentTime);
+			//
+			if (v.currentTime >= e && v.paused === false) {
+				v.pause();
+			}
+		};
+		v.play();
+	}
+</script>
+</html>
