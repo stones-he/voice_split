@@ -1,3 +1,9 @@
+# voice_split
+音频文件拆分
+
+
+:>>>>>>>
+
 # A statistical model-based Voice Activity Detector
 
 A voice activity detector applied a statistical model has been made in [2], where the decision rule is derived from the likelihood ratio test (LRT) by estimating unknown parameters using the decision-directed method. Hang-over scheme based on the hidden Markov model (HMM) are applied for smoothing.
