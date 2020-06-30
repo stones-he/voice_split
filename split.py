@@ -3,15 +3,17 @@ import os
 import time
 
 from pydub import AudioSegment
-from pydub.silence import split_on_silence
+from pydub.silence import split_on_silence, detect_silence, detect_nonsilent
+import shutil
 
 raw_length =0
+g_step=2
 
 def main():
     # 载入
 #     name = 'datasets/unit2.wav'
 #     name = 'datasets/unit8.mp3'
-    name = 'D:/tmp/yushu/yl-english/6b/wordmp3/unit8.mp3'
+    name = 'D:/DEVTOOL/eclipse/workspace_cordova/hello/www/books/7a/wordmp3/unit8.mp3'
 #     sound = AudioSegment.from_wav(name)
     sound = AudioSegment.from_mp3(name)
     global raw_length
@@ -19,10 +21,10 @@ def main():
     # sound = sound[:3*60*1000] # 如果文件较大，先取前3分钟测试，根据测试结果，调整参数
 
     # 设置参数
-    silence_thresh=-50      # 小于-70dBFS以下的为静默
-    min_silence_len=700     # 静默超过700毫秒则拆分1080
-    length_limit=9*1000    # 拆分后每段不得超过1分钟
-    abandon_chunk_len=100   # 放弃小于500毫秒的段
+    silence_thresh=-70      # 小于-70dBFS以下的为静默
+    min_silence_len=150     # 静默超过700毫秒则拆分1080
+    length_limit=9*1000     # 拆分后每段不得超过1分钟
+    abandon_chunk_len=150   # 放弃小于500毫秒的段
     joint_silence_len=1300  # 段拼接时加入1300毫秒间隔用于断句
 
     # 将录音文件拆分成适合百度语音识别的大小
@@ -51,6 +53,12 @@ def prepare_for_baiduaip(name,sound,silence_thresh=-70,min_silence_len=700,lengt
     print('开始拆分(如果录音较长，请耐心等待)\n',' *'*30)
     chunks = chunk_split_length_limit(sound,min_silence_len=min_silence_len,length_limit=length_limit,silence_thresh=silence_thresh)#silence time:700ms and silence_dBFS<-70dBFS
     print('拆分结束，返回段数:',len(chunks),'\n',' *'*30)
+    #获取静默数据段的起始
+    # silence_chunks = detect_silence(sound, min_silence_len, silence_thresh)
+    # print('拆分结束，静默返回段数:',len(silence_chunks), '\n', silence_chunks,'\n',' *'*30)
+    #获取非静默数据段的起始
+    nonsilent_chunks = detect_nonsilent(sound, min_silence_len, silence_thresh)
+    print('拆分结束，非静默返回段数:',len(nonsilent_chunks), '\n', nonsilent_chunks,'\n',' *'*30)
 
     # 放弃长度小于0.5秒的录音片段
     for i in list(range(len(chunks)))[::-1]:
@@ -61,9 +69,12 @@ def prepare_for_baiduaip(name,sound,silence_thresh=-70,min_silence_len=700,lengt
     # 时间过短的相邻段合并，单段不超过1分钟
 #     chunks = chunk_join_length_limit(chunks,joint_silence_len=joint_silence_len,length_limit=length_limit)
 #     print('合并后段数：',len(chunks))
-    spath ="D:/DEVTOOL/eclipse/workspace_fnlp/NakedTensor-master/kerasdemo/voice"
+    spath = os.path.abspath('.')
+    print(spath)
     # 保存前处理一下路径文件名
-    if not os.path.exists(spath+'/chunks'):os.mkdir('./chunks')
+    if os.path.exists(spath+'/chunks'):
+        shutil.rmtree(spath+'/chunks')
+    os.mkdir('./chunks')
     namef,namec = os.path.splitext(name)
     namef = os.path.split(namef)[1:]
     namec = namec[1:]
@@ -71,20 +82,33 @@ def prepare_for_baiduaip(name,sound,silence_thresh=-70,min_silence_len=700,lengt
     # 保存所有分段
     total = len(chunks)
     #
-    end = 0;
-    cur_total = 0;
+    # end = 0
+    cur_total = 0
     for i in range(total):
         cur_total += len(chunks[i])
+    #
     offset = (raw_length - cur_total)/total
-    length = offset;
+    # length = offset
     print("============%d,%d,%d,%d"%(raw_length,cur_total,total,offset))
-    for i in range(total):
-        new = chunks[i]
+    global g_step
+    for i in range(0, total, g_step):
+        if(g_step == 2):
+            if (i + 1 < total ):
+                new = chunks[i] + chunks[i+1]
+            else:
+                new = chunks[i]
+        else:
+            new = chunks[i]
         save_name = '%s_%04d.%s'%(namef,i,namec)
         new.export(spath+'/chunks/'+save_name, format=namec)
-        print('%04d,%06d,%06d,%06d'%(i,len(new),end,length+len(new)))
-        end = length + len(new)
-        length += len(new)+offset
+    #
+    print('*'*30)
+    for i in range(0, total, g_step):
+        #{"en":"prince","cn":"王子",st:3124,et:5056},
+        if(i+(g_step-1) < total):
+            print('%04d,\t{"en":"world%04d","cn":"单词",st:%d,et:%d},'%(i, i, nonsilent_chunks[i][0], nonsilent_chunks[i+(g_step-1)][1]))
+        else:
+            print('%04d,\t{"en":"world%04d","cn":"单词",st:%d,et:%d},'%(i, i, nonsilent_chunks[i][0], raw_length))
     print('保存完毕')
 
     return total
